@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="Démo autonome SpeedArti — Agencement & Découpe : débit panneaux, optimisation 2D et passerelles SpeedArti." />
+  <title>SpeedArti — Agencement & Découpe</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-mark">S</div>
+      <div>
+        <strong>SpeedArti</strong>
+        <span>Module métier — Agencement & Découpe</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="demo-pill">Démo autonome · aucune donnée production</span>
+      <button class="btn secondary" id="qaTopBtn">Rapport QA</button>
+      <button class="btn secondary" id="saveBtn">Enregistrer</button>
+      <button class="btn primary" id="optimizeTopBtn">Optimiser</button>
+    </div>
+  </header>
+
+  <nav class="steps" id="stepsNav"></nav>
+
+  <main class="main">
+    <section class="hero compact">
+      <div>
+        <span class="eyebrow">Configurateur métier</span>
+        <h1>Du panneau brut au plan de coupe optimisé</h1>
+        <p>Choisissez le panneau, saisissez les pièces, définissez les contraintes atelier puis générez les plans 2D avec trait de scie, purges, chutes et ordre de coupe.</p>
+      </div>
+      <div class="hero-stats">
+        <div><strong id="heroPieces">0</strong><span>pièces</span></div>
+        <div><strong id="heroSheets">—</strong><span>panneaux</span></div>
+        <div><strong id="heroYield">—</strong><span>rendement</span></div>
+      </div>
+    </section>
+
+    <section class="page active" data-step="0">
+      <div class="section-head"><div><h2>1. Projet & panneau</h2><p>Le projet reste autonome. Le panneau pourra ensuite provenir directement de la base fournisseur Idea Bois.</p></div></div>
+      <div class="grid g2">
+        <article class="card">
+          <div class="card-head"><div><h3>Projet</h3><p>Informations métier, utilisées dans les exports et les passerelles SpeedArti.</p></div></div>
+          <div class="card-body grid g2">
+            <label class="field"><span>Nom du projet</span><input id="projectName" value="Dressing chambre parentale" /></label>
+            <label class="field"><span>Client / chantier</span><input id="projectClient" value="Projet démo" /></label>
+            <label class="field span2"><span>Notes</span><textarea id="projectNotes" placeholder="Contraintes, finition, livraison, observations…"></textarea></label>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-head"><div><h3>Panneau</h3><p>Démo avec quelques formats exemples. En production : connexion à la BDD fournisseur.</p></div><span class="chip info">BDD Idea Bois à raccorder</span></div>
+          <div class="card-body grid g2">
+            <label class="field span2"><span>Produit</span><select id="panelProduct"></select></label>
+            <label class="field"><span>Longueur panneau (mm)</span><input type="number" id="panelLength" min="100" /></label>
+            <label class="field"><span>Largeur panneau (mm)</span><input type="number" id="panelWidth" min="100" /></label>
+            <label class="field"><span>Épaisseur (mm)</span><input type="number" id="panelThickness" min="1" /></label>
+            <label class="field"><span>Prix panneau HT (€)</span><input type="number" id="panelPrice" min="0" step="0.01" /></label>
+            <label class="field span2 check-row"><input type="checkbox" id="panelGrain" /><span><strong>Décor / fil orienté</strong><small>Empêche la rotation automatique des pièces marquées « suivre le fil ».</small></span></label>
+          </div>
+        </article>
+      </div>
+      <div class="notice info"><strong>Principe retenu :</strong> le module métier fait le travail technique. Les prix fournisseur, le chiffrage et le devis sont des sorties raccordées, pas le cœur du module.</div>
+    </section>
+
+    <section class="page" data-step="1">
+      <div class="section-head"><div><h2>2. Liste de débit</h2><p>Tableau rapide : dimensions finies, quantité, orientation et chants. Les options avancées restent accessibles sans surcharger la saisie.</p></div><button class="btn primary" id="addPieceBtn">+ Ajouter une pièce</button></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="cut-table">
+            <thead><tr><th>Rep.</th><th>Désignation</th><th>Longueur</th><th>Largeur</th><th>Qté</th><th>Fil</th><th>Rotation</th><th>Chants</th><th></th></tr></thead>
+            <tbody id="piecesBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="toolbar-row">
+        <button class="btn secondary" id="loadExampleBtn">Charger exemple dressing</button>
+        <span class="muted">Les chants sont saisis en G / D / H / B. L'épaisseur de chant et les surcotes sont prévues dans la structure d'intégration.</span>
+      </div>
+    </section>
+
+    <section class="page" data-step="2">
+      <div class="section-head"><div><h2>3. Paramètres atelier</h2><p>Le trait de scie et les purges sont des paramètres atelier, jamais des constantes imposées à Idea Bois.</p></div></div>
+      <div class="grid g3">
+        <article class="card"><div class="card-head"><div><h3>Trait de scie</h3><p>Kerf réel consommé à chaque séparation.</p></div></div><div class="card-body"><label class="field"><span>Kerf (mm)</span><input type="number" id="kerf" value="4" min="0" step="0.1" /></label></div></article>
+        <article class="card"><div class="card-head"><div><h3>Purges</h3><p>Affranchissement des quatre rives.</p></div></div><div class="card-body grid g2"><label class="field"><span>Gauche</span><input type="number" id="trimLeft" value="10" min="0" /></label><label class="field"><span>Droite</span><input type="number" id="trimRight" value="10" min="0" /></label><label class="field"><span>Haut</span><input type="number" id="trimTop" value="10" min="0" /></label><label class="field"><span>Bas</span><input type="number" id="trimBottom" value="10" min="0" /></label></div></article>
+        <article class="card"><div class="card-head"><div><h3>Chute réutilisable</h3><p>En dessous des seuils, la zone est classée déchet.</p></div></div><div class="card-body grid g2"><label class="field"><span>Longueur mini</span><input type="number" id="scrapMinL" value="400" min="0" /></label><label class="field"><span>Largeur mini</span><input type="number" id="scrapMinW" value="250" min="0" /></label><label class="field span2"><span>Surface mini (m²)</span><input type="number" id="scrapMinArea" value="0.15" min="0" step="0.01" /></label></div></article>
+      </div>
+      <article class="card">
+        <div class="card-head"><div><h3>Stratégie d'optimisation</h3><p>La démo calcule plusieurs ordres de placement et retient le meilleur score. V1 : découpe rectangulaire guillotine.</p></div></div>
+        <div class="card-body strategy-grid">
+          <label class="strategy active"><input type="radio" name="strategy" value="balanced" checked><span>⭐</span><strong>Recommandé</strong><small>Compromis panneaux / déchets / grandes chutes</small></label>
+          <label class="strategy"><input type="radio" name="strategy" value="material"><span>💰</span><strong>Minimum matière</strong><small>Priorité au nombre de panneaux et rendement</small></label>
+          <label class="strategy"><input type="radio" name="strategy" value="scraps"><span>♻️</span><strong>Grandes chutes</strong><small>Regroupe la matière restante en chutes utiles</small></label>
+          <label class="strategy"><input type="radio" name="strategy" value="cuts"><span>⚡</span><strong>Coupe simple</strong><small>Favorise les plans moins fragmentés</small></label>
+        </div>
+      </article>
+    </section>
+
+    <section class="page" data-step="3">
+      <div class="section-head"><div><h2>4. Optimisation & plans 2D</h2><p>Le plan intègre les purges et le kerf. Les chutes réutilisables sont distinguées des déchets.</p></div><div class="section-actions"><button class="btn secondary" id="printPlanBtn">Imprimer / PDF</button><button class="btn primary" id="optimizeBtn">Optimiser maintenant</button></div></div>
+      <div id="emptyResult" class="empty-state"><div class="big-icon">▧</div><h3>Aucun calcul lancé</h3><p>Saisissez vos pièces puis lancez l'optimisation.</p><button class="btn primary" id="emptyOptimizeBtn">Calculer les plans</button></div>
+      <div id="resultArea" class="hidden">
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="result-layout">
+          <div>
+            <div class="subhead"><h3>Plans panneaux</h3><div class="legend"><span><i class="lg piece"></i>Pièce</span><span><i class="lg scrap"></i>Chute</span><span><i class="lg waste"></i>Déchet</span><span><i class="lg trim"></i>Purge</span></div></div>
+            <div id="sheetsWrap" class="sheets-wrap"></div>
+          </div>
+          <aside class="card sticky-side"><div class="card-head"><div><h3>Ordre de coupe</h3><p>Séquence indicative issue de l'arbre guillotine de la démo.</p></div></div><div class="card-body"><ol id="cutSequence" class="cut-sequence"></ol></div></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-step="4">
+      <div class="section-head"><div><h2>5. Résultat & sorties SpeedArti</h2><p>Le projet de découpe reste la source technique. Les boutons ci-dessous simulent les raccordements au SpeedArti de production.</p></div></div>
+      <div class="grid g2">
+        <article class="card"><div class="card-head"><div><h3>Résumé technique</h3><p>Données envoyables vers les autres modules.</p></div></div><div class="card-body" id="technicalSummary"></div></article>
+        <article class="card"><div class="card-head"><div><h3>Passerelles</h3><p>Aucun appel production dans cette démo.</p></div><span class="chip success">Raccordements simulés</span></div><div class="card-body action-stack">
+          <button class="integration-btn" data-action="chiffrage"><span class="ico">∑</span><span><strong>Envoyer au chiffrage</strong><small>Raccord futur : Menuisier / Agencement</small></span><b>→</b></button>
+          <button class="integration-btn" data-action="devis"><span class="ico">€</span><span><strong>Transformer en devis</strong><small>Créer un brouillon de devis client modifiable</small></span><b>→</b></button>
+          <button class="integration-btn" data-action="supplier_quote"><span class="ico">✉</span><span><strong>Demander un devis fournisseur</strong><small>Préremplir demande + lignes + plan 2D PDF</small></span><b>→</b></button>
+          <button class="integration-btn" data-action="supplier_order"><span class="ico">▣</span><span><strong>Créer une commande fournisseur</strong><small>Préremplir la commande existante SpeedArti</small></span><b>→</b></button>
+        </div></article>
+      </div>
+      <article class="card"><div class="card-head"><div><h3>Chutes récupérables</h3><p>Préfiguration du futur stock de chutes SpeedArti.</p></div></div><div class="card-body"><div id="scrapList" class="scrap-list"></div></div></article>
+    </section>
+
+
+    <section class="page" data-step="5">
+      <div class="section-head"><div><h2>6. Rapport de validation — Balises QA</h2><p>Chaque contrôle du module possède une balise. Le rapport est recalculé à chaque modification et toute validation manuelle précédente est annulée si l’empreinte du module change.</p></div><div class="section-actions"><button class="btn secondary" id="qaRunBtn">Relancer le contrôle</button><button class="btn secondary" id="qaExportBtn">Exporter le rapport</button></div></div>
+      <div class="qa-status-card">
+        <div><span class="eyebrow">Statut global</span><strong id="qaGlobalStatus" data-status="BLOCKED">BLOQUÉ</strong><small>Version balises QA : 2026-09-04.3</small></div>
+        <div class="qa-counts">
+          <div><strong id="qaBlockingCount">0</strong><span>bloquants</span></div>
+          <div><strong id="qaWarningCount">0</strong><span>avertissements</span></div>
+          <div><strong id="qaValidateCount">0</strong><span>à valider</span></div>
+          <div><strong id="qaOkCount">0</strong><span>OK</span></div>
+        </div>
+      </div>
+      <div class="grid g2">
+        <article class="card"><div class="card-head"><div><h3>Validation de la démo</h3><p>La validation manuelle n’est possible que s’il ne reste aucune balise bloquante ni avertissement. Les balises « À VALIDER » sont des limites connues que tu peux accepter pour une démo.</p></div></div><div class="card-body qa-validation-actions"><div><strong id="qaManualState">Non validé manuellement</strong><small>Dernier contrôle : <span id="qaLastRun">—</span></small></div><div class="section-actions"><button class="btn secondary" id="qaResetValidationBtn">Annuler validation</button><button class="btn primary" id="qaValidateBtn" disabled>Valider le module pour démo</button></div></div></article>
+        <article class="card"><div class="card-head"><div><h3>Règle des balises</h3><p>Le rapport ne masque aucun problème détecté.</p></div></div><div class="card-body qa-legend"><span class="qa-badge blocking">BLOQUANT</span><span>Empêche le calcul, une sortie ou la validation de la démo.</span><span class="qa-badge warning">AVERTISSEMENT</span><span>Anomalie non bloquante à corriger avant validation.</span><span class="qa-badge validate">À VALIDER</span><span>Point connu à confirmer manuellement avant production ou accepté explicitement pour la démo.</span><span class="qa-badge ok">OK</span><span>Contrôle passé.</span></div></article>
+      </div>
+      <article class="card"><div class="card-head"><div><h3>Rapport détaillé</h3><p>Contrôles structure, panneau, atelier, pièces, géométrie, moteur, chutes, sorties et connecteurs.</p></div></div><div class="table-wrap"><table class="qa-table"><thead><tr><th>Balise</th><th>Domaine</th><th>État</th><th>Contrôle</th><th>Détail</th></tr></thead><tbody id="qaReportBody"></tbody></table></div></article>
+    </section>
+
+    <footer class="wizard-footer">
+      <button class="btn secondary" id="prevBtn">← Précédent</button>
+      <span id="autosaveState" class="muted">Projet local</span>
+      <button class="btn primary" id="nextBtn">Suivant →</button>
+    </footer>
+  </main>
+</div>
+
+<div class="modal hidden" id="integrationModal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <div class="modal-head"><div><span class="eyebrow">Raccordement SpeedArti</span><h2 id="modalTitle">Action</h2></div><button class="icon-btn" id="modalClose">×</button></div>
+    <div id="modalContent"></div>
+    <div class="modal-actions"><button class="btn secondary" id="modalCancel">Fermer</button><button class="btn primary" id="modalConfirm">Simuler l'action</button></div>
+  </div>
+</div>
+
+<script src="./catalog.js"></script>
+<script src="./engine.js"></script>
+<script src="./validation.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
