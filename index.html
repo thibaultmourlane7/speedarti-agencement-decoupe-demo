@@ -43,7 +43,7 @@
     </section>
 
     <section class="page active" data-step="0">
-      <div class="section-head"><div><h2>1. Projet & panneau</h2><p>Le projet reste autonome. Le panneau pourra ensuite provenir directement de la base fournisseur Idea Bois.</p></div></div>
+      <div class="section-head"><div><h2>1. Projet & panneau</h2><p>Le projet reste autonome. Le panneau est sélectionné dans le catalogue SpeedArti et reste modifiable avant optimisation.</p></div></div>
       <div class="grid g2">
         <article class="card">
           <div class="card-head"><div><h3>Projet</h3><p>Informations métier, utilisées dans les exports et les passerelles SpeedArti.</p></div></div>
@@ -53,19 +53,32 @@
             <label class="field span2"><span>Notes</span><textarea id="projectNotes" placeholder="Contraintes, finition, livraison, observations…"></textarea></label>
           </div>
         </article>
-        <article class="card">
-          <div class="card-head"><div><h3>Panneau</h3><p>Démo avec quelques formats exemples. En production : connexion à la BDD fournisseur.</p></div><span class="chip info">BDD Idea Bois à raccorder</span></div>
-          <div class="card-body grid g2">
-            <label class="field span2"><span>Produit</span><select id="panelProduct"></select></label>
-            <label class="field"><span>Longueur panneau (mm)</span><input type="number" id="panelLength" min="100" /></label>
-            <label class="field"><span>Largeur panneau (mm)</span><input type="number" id="panelWidth" min="100" /></label>
-            <label class="field"><span>Épaisseur (mm)</span><input type="number" id="panelThickness" min="1" /></label>
-            <label class="field"><span>Prix panneau HT (€)</span><input type="number" id="panelPrice" min="0" step="0.01" /></label>
-            <label class="field span2 check-row"><input type="checkbox" id="panelGrain" /><span><strong>Décor / fil orienté</strong><small>Empêche la rotation automatique des pièces marquées « suivre le fil ».</small></span></label>
+        <article class="card panel-catalog-card">
+          <div class="card-head"><div><h3>Catalogue panneaux</h3><p>Recherchez par fabricant, référence, décor ou nom, puis affinez avec les filtres.</p></div><span class="chip success"><span id="catalogResultCount">0</span>&nbsp;résultat(s)</span></div>
+          <div class="card-body">
+            <div class="catalog-search-row">
+              <label class="field catalog-search"><span>Rechercher</span><input id="panelSearch" type="search" placeholder="Ex. chêne, U999, EGGER, bouleau…" autocomplete="off" /></label>
+              <button class="btn secondary catalog-reset" type="button" id="panelFiltersReset">Réinitialiser</button>
+            </div>
+            <div class="catalog-filters">
+              <label class="field"><span>Type</span><select id="panelFamilyFilter"><option value="all">Tous les types</option></select></label>
+              <label class="field"><span>Fabricant</span><select id="panelManufacturerFilter"><option value="all">Tous les fabricants</option></select></label>
+              <label class="field"><span>Épaisseur</span><select id="panelThicknessFilter"><option value="all">Toutes les épaisseurs</option></select></label>
+            </div>
+            <label class="field panel-results"><span>Panneau sélectionné</span><select id="panelProduct" size="6"></select></label>
+            <div id="panelCatalogEmpty" class="empty-inline hidden">Aucun panneau ne correspond aux critères.</div>
+            <div id="panelSelectedInfo" class="panel-selected-info"></div>
+            <div class="grid g2 panel-dimensions">
+              <label class="field"><span>Longueur panneau (mm)</span><input type="number" id="panelLength" min="100" /></label>
+              <label class="field"><span>Largeur panneau (mm)</span><input type="number" id="panelWidth" min="100" /></label>
+              <label class="field"><span>Épaisseur (mm)</span><input type="number" id="panelThickness" min="1" /></label>
+              <label class="field"><span>Prix panneau HT (€)</span><input type="number" id="panelPrice" min="0" step="0.01" /></label>
+              <label class="field span2 check-row"><input type="checkbox" id="panelGrain" /><span><strong>Décor / fil orienté</strong><small>Empêche la rotation automatique des pièces marquées « suivre le fil ».</small></span></label>
+            </div>
           </div>
         </article>
       </div>
-      <div class="notice info"><strong>Principe retenu :</strong> le module métier fait le travail technique. Les prix fournisseur, le chiffrage et le devis sont des sorties raccordées, pas le cœur du module.</div>
+      <div class="notice info"><strong>Principe retenu :</strong> le module métier fait le travail technique. Le catalogue alimente le moteur technique. Le chiffrage et le devis restent des sorties raccordées, pas le cœur du module.</div>
     </section>
 
     <section class="page" data-step="1">
