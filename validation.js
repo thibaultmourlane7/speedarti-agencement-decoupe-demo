@@ -29,14 +29,17 @@
   function rectsOverlap(a,b){return a.x < b.x+b.w-1e-6 && a.x+a.w > b.x+1e-6 && a.y < b.y+b.h-1e-6 && a.y+a.h > b.y+1e-6;}
 
   function staticChecks(report){
-    const requiredIds=['stepsNav','projectName','panelProduct','panelLength','panelWidth','panelThickness','panelPrice','piecesBody','kerf','trimLeft','trimRight','trimTop','trimBottom','scrapMinL','scrapMinW','scrapMinArea','emptyResult','resultArea','technicalSummary','scrapList','qaReportBody','qaGlobalStatus'];
+    const requiredIds=['stepsNav','projectName','panelSearch','panelFamilyFilter','panelManufacturerFilter','panelThicknessFilter','catalogResultCount','panelProduct','panelLength','panelWidth','panelThickness','panelPrice','piecesBody','kerf','trimLeft','trimRight','trimTop','trimBottom','scrapMinL','scrapMinW','scrapMinArea','emptyResult','resultArea','technicalSummary','scrapList','qaReportBody','qaGlobalStatus'];
     const missing=requiredIds.filter(id=>!document.getElementById(id));
     report.push(check('MOD-001','Module',missing.length?'BLOCKING':'OK','Structure DOM obligatoire',missing.length?`Éléments absents : ${missing.join(', ')}`:'Tous les éléments indispensables sont présents.'));
     report.push(check('MOD-002','Module',window.SpeedArtiCutEngine?.optimize?'OK':'BLOCKING','Moteur de découpe chargé',window.SpeedArtiCutEngine?.optimize?'SpeedArtiCutEngine disponible.':'Le moteur SpeedArtiCutEngine est introuvable.'));
     const catalog=window.SPEEDARTI_PANEL_CATALOG;
     report.push(check('CAT-001','Catalogue',Array.isArray(catalog)&&catalog.length?'OK':'BLOCKING','Catalogue panneaux chargé',Array.isArray(catalog)?`${catalog.length} références disponibles.`:'Catalogue absent.'));
     const demoRefs=Array.isArray(catalog)?catalog.filter(p=>p.demo).length:0;
-    report.push(check('CAT-002','Catalogue',demoRefs?'VALIDATE':'OK','Source catalogue de démonstration',demoRefs?`${demoRefs} référence(s) sont marquées démo. Raccorder la vraie BDD Idea Bois avant production.`:'Catalogue non marqué démo.'));
+    report.push(check('CAT-002','Catalogue',demoRefs?'VALIDATE':'OK','Références de démonstration',demoRefs?`${demoRefs} référence(s) sont encore marquées démo.`:'Aucune référence n’est marquée démo.'));
+    report.push(check('CAT-003','Catalogue',Array.isArray(catalog)&&catalog.length>=200?'OK':'WARNING','Volume catalogue',Array.isArray(catalog)?`${catalog.length} références chargées.`:'Catalogue indisponible.'));
+    const filterIds=['panelSearch','panelFamilyFilter','panelManufacturerFilter','panelThicknessFilter'];
+    report.push(check('CAT-004','Catalogue',filterIds.every(id=>!!document.getElementById(id))?'OK':'WARNING','Recherche et filtres catalogue',filterIds.every(id=>!!document.getElementById(id))?'Recherche texte + filtres type/fabricant/épaisseur disponibles.':'Un ou plusieurs filtres catalogue sont absents.'));
     const connectorButtons=$$('.integration-btn[data-action]');
     const expected=['chiffrage','devis','supplier_quote','supplier_order'];
     const got=connectorButtons.map(b=>b.dataset.action);
@@ -54,7 +57,7 @@
     report.push(check('PROJ-001','Projet',project?'OK':'BLOCKING','Nom du projet renseigné',project||'Le nom du projet est obligatoire.'));
     const selected=$('#panelProduct')?.value;
     const product=(window.SPEEDARTI_PANEL_CATALOG||[]).find(p=>p.id===selected);
-    report.push(check('PAN-001','Panneau',product?'OK':'BLOCKING','Référence panneau sélectionnée',product?`${product.supplier} · ${product.label}`:'Aucune référence catalogue valide sélectionnée.'));
+    report.push(check('PAN-001','Panneau',product?'OK':'BLOCKING','Référence panneau sélectionnée',product?`${product.manufacturer||product.supplier} · ${product.label}`:'Aucune référence catalogue valide sélectionnée.'));
 
     const dimsOk=finite(cfg.panelW)&&finite(cfg.panelH)&&cfg.panelW>0&&cfg.panelH>0;
     report.push(check('PAN-002','Panneau',dimsOk?'OK':'BLOCKING','Dimensions panneau valides',dimsOk?`${cfg.panelW} × ${cfg.panelH} mm`:'Longueur/largeur invalides.'));
