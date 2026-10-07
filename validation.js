@@ -1,5 +1,5 @@
 (function(){
-  const QA_VERSION='2026-09-04.3';
+  const QA_VERSION='2026-10-07.1';
   const STORAGE_KEY='speedarti-cut-demo-qa-validation';
   const runtimeIssues=[];
   let lastReport=null;
@@ -135,7 +135,7 @@
     report.push(check('OPT-003','Optimisation',placed+impossible===requested?'OK':'BLOCKING','Conservation du nombre de pièces',`Demandées ${requested} · placées ${placed} · impossibles ${impossible}.`));
 
     const stats=result.stats||{};
-    const numericStats=['pieceArea','scrapArea','wasteArea','grossArea','usableArea','trimArea','kerfArea','balanceError','yieldPct','cutCount'];
+    const numericStats=['pieceArea','scrapArea','wasteArea','grossArea','usableArea','trimArea','kerfArea','balanceError','yieldPct','cutCount','scrapCount','largestScrapArea','largestScrapLongEdge','largestScrapShortEdge','wholeStripScraps'];
     const statsOk=numericStats.every(k=>finite(stats[k]));
     report.push(check('OPT-004','Optimisation',statsOk?'OK':'BLOCKING','Statistiques numériques valides',statsOk?'Aucun NaN/Infinity détecté.':'Une statistique est non numérique ou infinie.'));
     if(statsOk){
@@ -162,6 +162,60 @@
     report.push(check('GEO-001','Géométrie',boundsErrors.length?'BLOCKING':'OK','Toutes les pièces restent dans la zone utile',boundsErrors.length?`Hors limites : ${boundsErrors.join(', ')}`:'Aucun dépassement détecté.'));
     report.push(check('GEO-002','Géométrie',overlapErrors.length?'BLOCKING':'OK','Aucun chevauchement de pièces',overlapErrors.length?`Chevauchements : ${overlapErrors.join(', ')}`:'Aucun chevauchement détecté.'));
     report.push(check('GEO-003','Géométrie',cutErrors.length?'BLOCKING':'OK','Traits de coupe géométriquement valides',cutErrors.length?`Coupes invalides : ${cutErrors.join(', ')}`:`${stats.cutCount} coupe(s) contrôlée(s).`));
+
+    const scraps=Array.isArray(result.scraps)?result.scraps:[];
+    const largest=scraps.reduce((best,s)=>s.w*s.h>(best?.w||0)*(best?.h||0)?s:best,null);
+    const wasteTolerance=Math.max(5000,(Number(stats.usableArea)||0)*0.002);
+    const alternatives=Array.isArray(result.alternatives)?result.alternatives:[];
+    const fragmentationAlternative=alternatives.find(a=>
+      a.sheets===result.sheets.length &&
+      finite(a.wasteArea) &&
+      a.wasteArea<=Number(stats.wasteArea)+wasteTolerance &&
+      (
+        (a.scrapCount<Number(stats.scrapCount) && a.largestScrapArea>=Number(stats.largestScrapArea)*0.98) ||
+        (a.largestScrapArea>Number(stats.largestScrapArea)*1.15 && a.scrapCount<=Number(stats.scrapCount))
+      )
+    );
+    report.push(check(
+      'CHU-011','Chutes',fragmentationAlternative?'WARNING':'OK','Conservation des grandes chutes',
+      fragmentationAlternative
+        ?`Une alternative équivalente (${fragmentationAlternative.variant}) conserve mieux la matière : ${fragmentationAlternative.scrapCount} chute(s), plus grande ${Math.round(fragmentationAlternative.largestScrapArea/1000)/1000} m².`
+        :(largest?`Plus grande chute conservée entière : ${Math.round(largest.w)} × ${Math.round(largest.h)} mm · ${scraps.length} chute(s) récupérable(s).`:'Aucune chute récupérable selon les seuils actuels.')
+    ));
+
+    const physicalErrors=[];
+    scraps.forEach(sc=>{
+      const sheet=result.sheets.find(sh=>sh.index===sc.sheet);
+      const found=sheet?.free?.some(fr=>
+        fr.type==='scrap' &&
+        Math.abs(fr.x-sc.x)<=1e-6 && Math.abs(fr.y-sc.y)<=1e-6 &&
+        Math.abs(fr.w-sc.w)<=1e-6 && Math.abs(fr.h-sc.h)<=1e-6
+      );
+      if(!found) physicalErrors.push(sc.id||`P${sc.sheet}`);
+    });
+    report.push(check(
+      'CHU-012','Chutes',physicalErrors.length?'BLOCKING':'OK','Chutes physiquement réelles',
+      physicalErrors.length
+        ?`Chute(s) affichée(s) sans rectangle libre physique correspondant : ${physicalErrors.join(', ')}.`
+        :'Aucune fusion graphique artificielle : chaque chute correspond à un rectangle libre réel issu de la séquence de coupe.'
+    ));
+
+    const reuseAlternative=alternatives.find(a=>
+      a.sheets===result.sheets.length &&
+      finite(a.wasteArea) &&
+      a.wasteArea<=Number(stats.wasteArea)+wasteTolerance &&
+      a.scrapCount<=Number(stats.scrapCount)+1 &&
+      (
+        a.wholeStripScraps>Number(stats.wholeStripScraps) ||
+        a.largestScrapLongEdge>Number(stats.largestScrapLongEdge)*1.10
+      )
+    );
+    report.push(check(
+      'CHU-013','Chutes',reuseAlternative?'WARNING':'OK','Priorité à la valeur de réemploi',
+      reuseAlternative
+        ?`Une alternative équivalente conserve une chute plus utile : grand côté ${Math.round(reuseAlternative.largestScrapLongEdge)} mm, bande(s) entière(s) ${reuseAlternative.wholeStripScraps}.`
+        :`Plan retenu : grand côté maximal ${Math.round(Number(stats.largestScrapLongEdge)||0)} mm · bande(s) entière(s) ${Number(stats.wholeStripScraps)||0}.`
+    ));
 
     report.push(check('OUT-001','Sorties',result.sheets.length?'OK':'BLOCKING','Plans 2D générés',result.sheets.length?`${result.sheets.length} plan(s) panneau disponible(s).`:'Aucun plan généré.'));
     report.push(check('OUT-002','Sorties','VALIDATE','Export PDF atelier','La démo utilise l’impression navigateur pour produire un PDF. Le modèle PDF SpeedArti dédié reste à raccorder en production.'));
