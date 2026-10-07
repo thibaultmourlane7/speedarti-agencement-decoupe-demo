@@ -134,10 +134,14 @@
     add('largeur',(a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h));
     add('contrainte',(a,b)=>Number(a.canRotate)-Number(b.canRotate)||b.w*b.h-a.w*a.h);
     add('ratio',(a,b)=>Math.max(b.w/b.h,b.h/b.w)-Math.max(a.w/a.h,a.h/a.w));
+    add('bandes-horizontales',(a,b)=>b.h-a.h||b.w-a.w||b.w*b.h-a.w*a.h);
+    add('bandes-verticales',(a,b)=>b.w-a.w||b.h-a.h||b.w*b.h-a.w*a.h);
+    add('bandes-basses',(a,b)=>a.h-b.h||b.w-a.w||b.w*b.h-a.w*a.h);
+    add('bandes-etroites',(a,b)=>a.w-b.w||b.h-a.h||b.w*b.h-a.w*a.h);
     return variants;
   }
 
-  function runOne(pieces,cfg,strategy,variant){
+  function runOne(pieces,cfg,strategy,variant,placementStrategy=strategy){
     const sheets=[]; const impossible=[];
     const maxW=cfg.panelW-cfg.trimLeft-cfg.trimRight;
     const maxH=cfg.panelH-cfg.trimTop-cfg.trimBottom;
@@ -147,11 +151,11 @@
       if(!orientations(piece).some(o=>rectFits(o,usableRect,cfg.kerf))){impossible.push(piece);continue;}
       let placed=false;
       for(const sheet of sheets){
-        if(placeIntoSheet(sheet,piece,cfg,strategy)){placed=true;break;}
+        if(placeIntoSheet(sheet,piece,cfg,placementStrategy)){placed=true;break;}
       }
       if(!placed){
         const sheet=makeSheet(cfg,sheets.length+1);
-        if(placeIntoSheet(sheet,piece,cfg,strategy)){sheets.push(sheet);} else impossible.push(piece);
+        if(placeIntoSheet(sheet,piece,cfg,placementStrategy)){sheets.push(sheet);} else impossible.push(piece);
       }
     }
 
@@ -164,7 +168,9 @@
         const type=classifyFree(rect,cfg); rect.type=type;
         if(type==='scrap'){
           scrapArea+=area(rect);
-          scraps.push({...rect,sheet:sheet.index,id:`CH-${String(sheet.index).padStart(2,'0')}-${String(idx+1).padStart(2,'0')}`});
+          const wholeStrip=Math.abs(rect.w-maxW)<=EPS||Math.abs(rect.h-maxH)<=EPS;
+          rect.wholeStrip=wholeStrip;
+          scraps.push({...rect,sheet:sheet.index,id:`CH-${String(sheet.index).padStart(2,'0')}-${String(idx+1).padStart(2,'0')}`,wholeStrip});
         }else wasteArea+=area(rect);
       });
     });
@@ -175,14 +181,23 @@
     const balanceError=usableArea-pieceArea-scrapArea-wasteArea-kerfArea;
     const yieldPct=grossArea?pieceArea/grossArea*100:0;
     const cutCount=sheets.reduce((sum,sheet)=>sum+sheet.cuts.length,0);
-    let score=sheets.length*1e12 + wasteArea*10 + cutCount*1e6 - scrapArea*.15;
-    if(strategy==='material') score=sheets.length*1e12 + (wasteArea+scrapArea)*5 + cutCount*2e5;
-    if(strategy==='scraps') score=sheets.length*1e12 + wasteArea*12 - scrapArea*.5 + cutCount*2e5;
-    if(strategy==='cuts') score=sheets.length*1e12 + cutCount*5e7 + wasteArea*2;
+    const scrapCount=scraps.length;
+    const largestScrap=scraps.reduce((best,s)=>area(s)>area(best||{w:0,h:0})?s:best,null);
+    const largestScrapArea=largestScrap?area(largestScrap):0;
+    const largestScrapLongEdge=largestScrap?Math.max(largestScrap.w,largestScrap.h):0;
+    const largestScrapShortEdge=largestScrap?Math.min(largestScrap.w,largestScrap.h):0;
+    const wholeStripScraps=scraps.filter(s=>s.wholeStrip).length;
+    const fragmentationPenalty=scrapCount*1.8e7;
+    const continuityBonus=largestScrapArea*2.8 + largestScrapLongEdge*11000 + wholeStripScraps*2.5e7;
+
+    let score=sheets.length*1e12 + wasteArea*10 + cutCount*1e6 + fragmentationPenalty - continuityBonus;
+    if(strategy==='material') score=sheets.length*1e12 + wasteArea*14 + cutCount*2e5 + scrapCount*6e6 - largestScrapArea*.7 - largestScrapLongEdge*2500;
+    if(strategy==='scraps') score=sheets.length*1e12 + wasteArea*12 + scrapCount*3.2e7 - largestScrapArea*6 - largestScrapLongEdge*22000 - wholeStripScraps*4e7 + cutCount*2e5;
+    if(strategy==='cuts') score=sheets.length*1e12 + cutCount*5e7 + wasteArea*2 + scrapCount*3e6 - largestScrapArea*.25 - largestScrapLongEdge*1000;
 
     return {
-      sheets,impossible,scraps,score,variant:variant.name,
-      stats:{pieceArea,scrapArea,wasteArea,grossArea,usableArea,trimArea,kerfArea,balanceError,yieldPct,cutCount}
+      sheets,impossible,scraps,score,variant:variant.name,placementStrategy,
+      stats:{pieceArea,scrapArea,wasteArea,grossArea,usableArea,trimArea,kerfArea,balanceError,yieldPct,cutCount,scrapCount,largestScrapArea,largestScrapLongEdge,largestScrapShortEdge,wholeStripScraps}
     };
   }
 
@@ -209,13 +224,17 @@
     validateConfig(cfg);
     validateRows(rows);
     const pieces=expandPieces(rows,cfg);
-    if(!pieces.length) return {sheets:[],impossible:[],stats:{pieceArea:0,scrapArea:0,wasteArea:0,grossArea:0,usableArea:0,trimArea:0,kerfArea:0,balanceError:0,yieldPct:0,cutCount:0},scraps:[],score:0,alternatives:[]};
-    const results=orderVariants(pieces).map(v=>runOne(pieces,cfg,strategy,v)).sort((a,b)=>{
+    if(!pieces.length) return {sheets:[],impossible:[],stats:{pieceArea:0,scrapArea:0,wasteArea:0,grossArea:0,usableArea:0,trimArea:0,kerfArea:0,balanceError:0,yieldPct:0,cutCount:0,scrapCount:0,largestScrapArea:0,largestScrapLongEdge:0,largestScrapShortEdge:0,wholeStripScraps:0},scraps:[],score:0,alternatives:[]};
+    const results=[];
+    const placementStrategies=[...new Set([strategy,'balanced','scraps','material','cuts'])];
+    orderVariants(pieces).forEach(v=>placementStrategies.forEach(ps=>results.push(runOne(pieces,cfg,strategy,v,ps))));
+    results.sort((a,b)=>{
       if(a.impossible.length!==b.impossible.length) return a.impossible.length-b.impossible.length;
+      if(a.sheets.length!==b.sheets.length) return a.sheets.length-b.sheets.length;
       return a.score-b.score;
     });
     const best=results[0];
-    best.alternatives=results.slice(1,4).map(r=>({variant:r.variant,sheets:r.sheets.length,yieldPct:r.stats.yieldPct,cutCount:r.stats.cutCount,impossible:r.impossible.length}));
+    best.alternatives=results.slice(1,7).map(r=>({variant:r.variant,placementStrategy:r.placementStrategy,sheets:r.sheets.length,yieldPct:r.stats.yieldPct,cutCount:r.stats.cutCount,impossible:r.impossible.length,scrapCount:r.stats.scrapCount,largestScrapArea:r.stats.largestScrapArea,largestScrapLongEdge:r.stats.largestScrapLongEdge,largestScrapShortEdge:r.stats.largestScrapShortEdge,wholeStripScraps:r.stats.wholeStripScraps,wasteArea:r.stats.wasteArea}));
     return best;
   }
 
